@@ -3,10 +3,8 @@ import streamlit as st
 import base64
 from openai import OpenAI
 import openai
-import tensorflow as tf
-from PIL import Image, ImageOps
 import numpy as np
-import pytesseract
+from PIL import Image
 from streamlit_drawable_canvas import st_canvas
 
 # --- Función para codificar imagen a base64 ---
@@ -16,7 +14,7 @@ def encode_image_to_base64(image_path):
             encoded_image = base64.b64encode(image_file.read()).decode("utf-8")
             return encoded_image
     except FileNotFoundError:
-        return "Error: La imagen no se encontró en la ruta especificada."
+        return "Error: Imagen no encontrada."
 
 # --- Configuración de la app Streamlit ---
 st.set_page_config(page_title='Tablero Inteligente')
@@ -28,7 +26,7 @@ with st.sidebar:
 
 st.subheader("Dibuja la placa en el panel y presiona el botón para analizarla")
 
-# --- Configuración del canvas para dibujo ---
+# --- Canvas para dibujo ---
 drawing_mode = "freedraw"
 stroke_width = st.sidebar.slider('Selecciona el ancho de línea', 1, 30, 5)
 stroke_color = "#000000"
@@ -45,7 +43,7 @@ canvas_result = st_canvas(
     key="canvas",
 )
 
-# --- Entrada de clave de API ---
+# --- Entrada de API Key ---
 ke = st.text_input('Ingresa tu clave de API de OpenAI', type='password')
 os.environ['OPENAI_API_KEY'] = ke
 api_key = os.environ['OPENAI_API_KEY']
@@ -53,33 +51,23 @@ api_key = os.environ['OPENAI_API_KEY']
 # --- Inicializar cliente OpenAI ---
 client = OpenAI(api_key=api_key)
 
-# --- Botón para procesar imagen ---
+# --- Botón de análisis ---
 analyze_button = st.button("Analiza la imagen", type="secondary")
 
 if canvas_result.image_data is not None and api_key and analyze_button:
-    with st.spinner("Analizando ..."):
-        # Convertir imagen de canvas a formato PIL
+    with st.spinner("Analizando imagen..."):
+
+        # Guardar la imagen dibujada
         input_numpy_array = np.array(canvas_result.image_data)
         input_image = Image.fromarray(input_numpy_array.astype('uint8'), 'RGBA')
         input_image_rgb = input_image.convert("RGB")
         input_image_rgb.save('img.png')
 
-        # --- OCR para detectar texto ---
-        ocr_text = pytesseract.image_to_string(input_image_rgb)
-        ocr_text = ocr_text.strip().upper().replace("\n", " ").replace("  ", " ")
-        
-        # --- Placas autorizadas ---
-        placas_autorizadas = ["CKN 364", "MXL 931"]
-
-        # --- Verificar acceso ---
-        if any(placa in ocr_text for placa in placas_autorizadas):
-            st.success(f"✅ ACCESO PERMITIDO: Placa reconocida: {ocr_text}")
-        else:
-            st.error(f"⛔ ACCESO DENEGADO: Placa no autorizada. Detectado: {ocr_text}")
-
-        # --- Mostrar descripción con GPT (opcional) ---
+        # Codificar en base64
         base64_image = encode_image_to_base64("img.png")
-        prompt_text = "Describe en español brevemente el contenido de la imagen"
+
+        # Prompt para OpenAI
+        prompt_text = "Extrae y transcribe la placa vehicular (números y letras) que aparece en esta imagen."
 
         try:
             response = openai.chat.completions.create(
@@ -96,16 +84,24 @@ if canvas_result.image_data is not None and api_key and analyze_button:
                         ],
                     }
                 ],
-                max_tokens=500,
+                max_tokens=100,
             )
 
             if response.choices[0].message.content:
-                st.markdown("**Descripción generada por GPT:**")
-                st.write(response.choices[0].message.content)
+                resultado = response.choices[0].message.content.upper().strip()
+
+                st.markdown("**Texto detectado:**")
+                st.code(resultado)
+
+                # Validar contra placas autorizadas
+                placas_autorizadas = ["CKN 364", "MXL 931"]
+                if any(placa in resultado for placa in placas_autorizadas):
+                    st.success(f"✅ ACCESO PERMITIDO: Placa reconocida: {resultado}")
+                else:
+                    st.error(f"⛔ ACCESO DENEGADO: Placa no autorizada. Detectado: {resultado}")
 
         except Exception as e:
-            st.error(f"Ocurrió un error al usar la API de OpenAI: {e}")
-
+            st.error(f"Error con la API de OpenAI: {e}")
 else:
     if not api_key:
-        st.warning("⚠️ Por favor ingresa tu API key.")
+        st.warning("⚠️ Por favor ingresa tu clave de API.")
