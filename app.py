@@ -1,7 +1,6 @@
 import os
 import streamlit as st
 import base64
-from openai import OpenAI
 import openai
 import numpy as np
 from PIL import Image
@@ -45,16 +44,15 @@ canvas_result = st_canvas(
 
 # --- Entrada de API Key ---
 ke = st.text_input('Ingresa tu clave de API de OpenAI', type='password')
-os.environ['OPENAI_API_KEY'] = ke
-api_key = os.environ['OPENAI_API_KEY']
 
-# --- Inicializar cliente OpenAI ---
-client = OpenAI(api_key=api_key)
+# Asignar API key al cliente de OpenAI (corrección principal)
+if ke:
+    openai.api_key = ke
 
 # --- Botón de análisis ---
 analyze_button = st.button("Analiza la imagen", type="secondary")
 
-if canvas_result.image_data is not None and api_key and analyze_button:
+if canvas_result.image_data is not None and ke and analyze_button:
     with st.spinner("Analizando imagen..."):
 
         # Guardar la imagen dibujada
@@ -71,7 +69,7 @@ if canvas_result.image_data is not None and api_key and analyze_button:
 
         try:
             response = openai.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4o",  # Puedes usar gpt-4o, gpt-4o-mini, o gpt-4-turbo
                 messages=[
                     {
                         "role": "user",
@@ -103,5 +101,5 @@ if canvas_result.image_data is not None and api_key and analyze_button:
         except Exception as e:
             st.error(f"Error con la API de OpenAI: {e}")
 else:
-    if not api_key:
+    if not ke:
         st.warning("⚠️ Por favor ingresa tu clave de API.")
