@@ -45,16 +45,15 @@ canvas_result = st_canvas(
 # --- Entrada de API Key ---
 ke = st.text_input('Ingresa tu clave de API de OpenAI', type='password')
 
-# Asignar API key al cliente de OpenAI (corrección principal)
+# Verificamos si hay clave
 if ke:
-    openai.api_key = ke
+    openai.api_key = ke  # ✅ AQUÍ se asigna correctamente la API key
 
 # --- Botón de análisis ---
 analyze_button = st.button("Analiza la imagen", type="secondary")
 
 if canvas_result.image_data is not None and ke and analyze_button:
     with st.spinner("Analizando imagen..."):
-
         # Guardar la imagen dibujada
         input_numpy_array = np.array(canvas_result.image_data)
         input_image = Image.fromarray(input_numpy_array.astype('uint8'), 'RGBA')
@@ -69,7 +68,7 @@ if canvas_result.image_data is not None and ke and analyze_button:
 
         try:
             response = openai.chat.completions.create(
-                model="gpt-4o",  # Puedes usar gpt-4o, gpt-4o-mini, o gpt-4-turbo
+                model="gpt-4o",
                 messages=[
                     {
                         "role": "user",
